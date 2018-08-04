@@ -1,4 +1,4 @@
-package main
+package helpers
 
 // Ad represents an Localbitcoin's Ad buying BTC
 type Ad struct {

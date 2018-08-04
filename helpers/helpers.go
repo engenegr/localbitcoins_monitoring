@@ -1,4 +1,4 @@
-package main
+package helpers
 
 import "strings"
 
@@ -11,7 +11,7 @@ func containsKeywords(s string, kws []string) bool {
 	return false
 }
 
-func filterBuyers(ads []Ad, kws []string) []Ad {
+func FilterBuyers(ads []Ad, kws []string) []Ad {
 	fb := []Ad{}
 	for _, ad := range ads {
 		msgContainsKws := containsKeywords(ad.Data.Message, kws)
