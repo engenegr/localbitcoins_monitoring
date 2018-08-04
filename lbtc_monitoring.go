@@ -1,16 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/urfave/cli"
-	"github.com/engenegr/localbitcoins_monitoring/helpers"
+	"github.com/engenegr/localbitcoins_monitoring/api"
 )
 
 func main() {
@@ -32,8 +29,9 @@ func main() {
 		}
 		fmt.Println("Currency: " + currency)
 		fmt.Println(fmt.Sprintf("Keywords: %v", keywords))
-		m := NewMonitor()
+		m := api.NewMonitor()
 		_, err := m.GatherBuyers(currency, keywords)
+		m.ListCurrencies()
 		return err
 	}
 
@@ -42,65 +40,3 @@ func main() {
 	}
 }
 
-// Monitor contains methods to filter Localbitcoins' ads based on Currency and Keywords
-type Monitor struct {
-	HTTPClient *http.Client
-}
-
-// getPage fetches a page of ads from localbitcoin's API.
-func (m *Monitor) getPage(u string) (helpers.LBTCResponse, error) {
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return helpers.LBTCResponse{}, err
-	}
-	resp, err := m.HTTPClient.Do(req)
-	if err != nil {
-		return helpers.LBTCResponse{}, err
-	}
-	if resp.StatusCode != 200 {
-		return helpers.LBTCResponse{}, fmt.Errorf(fmt.Sprintf("Status code %d", resp.StatusCode))
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return helpers.LBTCResponse{}, err
-	}
-
-	var data helpers.LBTCResponse
-	json.Unmarshal(body, &data)
-	return data, nil
-}
-
-// GatherBuyers filters the available buyers, leaving the ones that:
-//    a) Match the currency we're interested in
-//    b) Contain some of the keywords we;re looking for, either in their description or bank name
-func (m *Monitor) GatherBuyers(c string, keywords []string) ([]helpers.Ad, error) {
-	baseURL := fmt.Sprintf("https://localbitcoins.com/sell-bitcoins-online/%s/.json", c)
-	buyers := []helpers.Ad{}
-	var err error
-	var page helpers.LBTCResponse
-	page.Pagination.Next = baseURL
-	for {
-		page, err = m.getPage(page.Pagination.Next)
-		if err != nil {
-			return []helpers.Ad{}, err
-		}
-		buyers = append(buyers, helpers.FilterBuyers(page.Data.Ads, keywords)...)
-		if page.Pagination.Next == "" {
-			break
-		}
-	}
-
-	jsonBuyers, err := json.MarshalIndent(buyers, "", "    ")
-	if err != nil {
-		return []helpers.Ad{}, err
-	}
-	fmt.Println(fmt.Sprintf("Buyers Found: %d", len(buyers)))
-	fmt.Println(string(jsonBuyers))
-	return buyers, err
-}
-
-// NewMonitor creates a new Monitor
-func NewMonitor() Monitor {
-	return Monitor{HTTPClient: &http.Client{}}
-}
